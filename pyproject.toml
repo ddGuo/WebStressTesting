@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "WebStressTesting"
+version = "0.2.0"
+description = "基于 AioTest 的现代化网站压测工具"
+keywords = ["load-testing", "stress-testing", "performance-testing", "aiotest", "asyncio", "benchmark"]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "aiotest>=1.2.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+WebStressTesting = "web_stress_testing.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["web_stress_testing*"]

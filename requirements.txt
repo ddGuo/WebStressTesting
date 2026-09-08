@@ -1,0 +1,3 @@
+# WebStressTesting - 基于 AioTest 的现代化压测工具
+aiotest>=1.2.0
+rich>=13.0.0
