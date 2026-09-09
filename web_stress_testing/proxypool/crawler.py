@@ -469,6 +469,20 @@ class ProxyCrawler:
                 uniq.append(d)
         return uniq
 
+    async def _proxycompass(self, session):
+        """ProxyCompass（下载型）：主页取 proxylister_ajax nonce → admin-ajax 下载 txt（ip:port 行）。"""
+        home = await self._get_text(session, "https://proxycompass.com/", timeout=15)
+        m = re.search(
+            r'proxylister_ajax\s*=\s*\{\s*"ajax_url"\s*:\s*"([^"]+)"\s*,\s*"nonce"\s*:\s*"([0-9a-f]{10})"',
+            home)
+        if not m:
+            raise RuntimeError("proxycompass: 主页未找到 proxylister nonce")
+        ajax_url, nonce = m.group(1), m.group(2)
+        dl = (f"{ajax_url}?action=proxylister_download&nonce={nonce}"
+              "&format=txt&filter=%7B%7D")
+        text = await self._get_text(session, dl, timeout=25)
+        return parse_proxies_from_text(text)
+
     # ------------------------------------------------------------------
     # 主入口
     # ------------------------------------------------------------------
@@ -578,6 +592,7 @@ SOURCES: Dict[str, Callable[[ProxyCrawler, aiohttp.ClientSession], Any]] = {
     "66ip": ProxyCrawler._ip66,
     "ipdongtai": ProxyCrawler._ipdongtai,
     "proxyscrape": ProxyCrawler._proxyscrape,
+    "proxycompass": ProxyCrawler._proxycompass,
 }
 
 SOURCE_HOMEPAGE: Dict[str, str] = {
@@ -591,4 +606,5 @@ SOURCE_HOMEPAGE: Dict[str, str] = {
     "66ip": "http://www.66ip.cn/",
     "ipdongtai": "https://www.ipdongtai.com/",
     "proxyscrape": "https://proxyscrape.com/",
+    "proxycompass": "https://proxycompass.com/",
 }

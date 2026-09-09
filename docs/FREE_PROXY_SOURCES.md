@@ -1,4 +1,4 @@
-# 🕸 内置免费代理源清单（17 个）
+# 🕸 内置免费代理源清单（18 个）
 
 > 覆盖 jhao104/proxy_pool `fetcher/sources` 全部免费源 + 旧 66IP。
 > 解析规则参考 jhao104/proxy_pool（MIT）；所有抓取结果仍需过校验器“只保留有效”。
@@ -19,6 +19,7 @@
 | 谷德代理 goodips | HTML | https://www.goodips.com/ | https://www.goodips.com/ | 列表解析 | 15 |
 | 66代理 daili66 | JSON | https://www.66daili.com/ | https://www.66daili.com/free/list?page=N&size=15 | data[].ip/.port/.protocol | 232 |
 | IP动态 ipdongtai | HTML | https://www.ipdongtai.com/ | https://www.ipdongtai.com/free/N | 表格解析（td.kdl-table-cell） | 24 |
+| ProxyCompass | 下载(txt) | https://proxycompass.com/ | wp-admin/admin-ajax.php?action=proxylister_download（主页自动取 nonce） | ip:port 行（http） | ~560 |
 
 ## 二、本轮抽样无效（可能反爬/暂时为空，已自动冷却）
 

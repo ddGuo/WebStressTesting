@@ -48,7 +48,7 @@ class ProxyPoolConfig:
         "kuaidaili", "ip3366", "ip89", "kxdaili",
         "daili66", "docip", "freevpnnode", "geonode", "goodips", "ihuan",
         "proxifly", "roundproxies", "scdn", "zdaye", "66ip",
-        "ipdongtai", "proxyscrape",
+        "ipdongtai", "proxyscrape", "proxycompass",
     ])
 
     # ---- 日志 ----
