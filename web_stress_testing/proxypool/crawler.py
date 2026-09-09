@@ -194,8 +194,37 @@ class ProxyCrawler:
     # 各源实现（返回 (ip, port) 列表）
     # ------------------------------------------------------------------
     async def _daili66(self, session):
-        r = await self._get_json(session, "http://api.66daili.com/?format=json", timeout=10)
-        return [(e.get("ip"), e.get("port")) for e in (r.get("data") or [])]
+        """66代理网页版：GET /free/list 返回 JSON data[]:
+        {ip, port(str), protocol, status, anonymity, location, responseTime}
+        按页请求（接口忽略分页时返回全量，做去重）。"""
+        urls = [f"https://www.66daili.com/free/list?page={i}&size=50"
+                for i in range(1, self.max_pages + 1)]
+
+        async def one(u: str) -> List[Dict[str, Any]]:
+            r = await self._get_json(session, u, timeout=10)
+            out: List[Dict[str, Any]] = []
+            for e in (r.get("data") or []):
+                if e.get("status") not in (None, 1, "1"):
+                    continue
+                protocol = str(e.get("protocol") or "http").lower()
+                if protocol in ("socks4", "socks5"):
+                    continue  # 校验器暂不支持 socks
+                if protocol not in ("http", "https"):
+                    protocol = "http"
+                if _valid(e.get("ip"), e.get("port")):
+                    out.append({"ip": e["ip"], "port": int(e["port"]),
+                                "protocol": protocol, "source": "crawler:daili66"})
+            return out
+
+        results = await asyncio.gather(*[one(u) for u in urls], return_exceptions=True)
+        rows = [d for r in results if not isinstance(r, Exception) for d in r]
+        seen, uniq = set(), []
+        for d in rows:
+            k = (d["ip"], d["port"], d["protocol"])
+            if k not in seen:
+                seen.add(k)
+                uniq.append(d)
+        return uniq
 
     async def _docip(self, session):
         r = await self._get_json(session, "https://www.docip.net/data/free.json", timeout=10)
@@ -389,8 +418,12 @@ class ProxyCrawler:
                      time.strftime("%H:%M:%S", time.localtime(self._health[name]["disabled_until"])))
             return []
         try:
-            pairs = await fn(self, session)
-            rows = _rows(pairs, name)
+            result = await fn(self, session)
+            # 兼容两种返回：[(ip, port), ...] 或 [{ip, port, protocol, source}, ...]
+            if result and isinstance(result[0], dict):
+                rows = result
+            else:
+                rows = _rows(result, name)
             self._health[name]["found"] = len(rows)
             self._health[name]["last_error"] = ""
             if not rows:

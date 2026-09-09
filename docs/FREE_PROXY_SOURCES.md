@@ -17,6 +17,7 @@
 | 云代理 ip3366 | HTML | http://www.ip3366.net/ | http://www.ip3366.net/free/?stype=1 / ?stype=2 | 表格正则（2 页） | 30 |
 | 小幻代理 ihuan | HTML | https://ip.ihuan.me/ | https://ip.ihuan.me/（先取 cookie 再抓） | 表格解析 | 18 |
 | 谷德代理 goodips | HTML | https://www.goodips.com/ | https://www.goodips.com/ | 列表解析 | 15 |
+| 66代理 daili66 | JSON | https://www.66daili.com/ | https://www.66daili.com/free/list?page=N&size=15 | data[].ip/.port/.protocol | 232 |
 
 ## 二、本轮抽样无效（可能反爬/暂时为空，已自动冷却）
 
@@ -24,7 +25,6 @@
 |---|---|---|---|---|---|
 | 快代理 kuaidaili | HTML | https://www.kuaidaili.com | https://www.kuaidaili.com/free/inha/1/ 等 | 表格正则（页间 sleep1s） | 反爬较强，需 UA/频率控制 |
 | 开心代理 kxdaili | HTML | http://www.kxdaili.com/dailiip.html | http://www.kxdaili.com/dailiip.html / dailiip/2/1.html | 表格解析（2 页） | 可能临时失效 |
-| 66代理 daili66 | JSON | https://www.66daili.com | http://api.66daili.com/?format=json | data[].ip/.port | 接口可能限流 |
 | 稻壳代理 docip | JSON | https://www.docip.net/ | https://www.docip.net/data/free.json | data[].ip | 本轮连接被拒 |
 | Proxifly | JSON | https://proxifly.dev/ | https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/all/data.json | 仅 CN + http | jsdelivr 国内网络偶不可达 |
 | 站大爷 zdaye | HTML | https://www.zdaye.com/dayProxy.html | https://www.zdaye.com/free/ → 最新帖详情页 | 分页（页间 sleep5s） | 依赖最新帖时间戳 |

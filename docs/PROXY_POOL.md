@@ -87,7 +87,7 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 | 云代理 | `ip3366` | HTML | 表格正则（2 页） |
 | 89免费代理 | `ip89` | HTML | 表格正则 |
 | 开心代理 | `kxdaili` | HTML | 表格解析（2 页） |
-| 66代理 | `daili66` | JSON | `api.66daili.com/?format=json` |
+| 66代理 | `daili66` | JSON | `www.66daili.com/free/list?page=N&size=15`（网页版接口） |
 | 稻壳代理 | `docip` | JSON | `docip.net/data/free.json` |
 | FreeVPNNode | `freevpnnode` | HTML+文本 | 表格 + 文本兜底 |
 | Geonode | `geonode` | JSON | proxylist API（limit=100） |
