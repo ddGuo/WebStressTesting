@@ -254,8 +254,8 @@ class ProxyCrawler:
 
     async def _geonode(self, session):
         urls = [
-            "https://proxylist.geonode.com/api/proxy-list?filterLastChecked=10&page="
-            f"{i}&limit=100&sort_by=lastChecked&sort_type=desc"
+            "https://proxylist.geonode.com/api/proxy-list?page="
+            f"{i}&limit=100&sort_by=responseTime&sort_type=asc"
             for i in range(1, self.max_pages + 1)
         ]
 
