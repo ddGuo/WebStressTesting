@@ -74,7 +74,7 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 - **统计**：`report.json` 的 `proxy_pool` 字段 + HTML 报告“代理池”表格
   （每个代理的成功/失败/平均延迟/状态）。
 
-## 五、免费源抓取（默认开启全部 15 个）
+## 五、免费源抓取（默认开启全部 17 个）
 
 优先级建议：**文件/API 导入 > 免费源爬取**。内置源覆盖
 [jhao104/proxy_pool fetcher/sources](https://github.com/jhao104/proxy_pool/tree/master/fetcher/sources)
@@ -98,6 +98,8 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 | SCDN | `scdn` | JSON | table_html/data/文本三重兜底 |
 | 站大爷 | `zdaye` | HTML | 最新帖分页（页间 sleep 5s） |
 | 66IP（旧） | `66ip` | 文本 | 文本行解析 |
+| IP动态 | `ipdongtai` | HTML | 表格解析（td.kdl-table-cell，自动翻页） |
+| Proxyscrape | `proxyscrape` | JSON | v4 API（protocolipport，skip 分页） |
 
 ### 自代理爬取（防反爬）+ 坏代理兜底
 
@@ -144,7 +146,7 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 | `PROXYPOOL_TTL` | 600 | 校验有效期（秒） |
 | `PROXYPOOL_CHECK_INTERVAL` | 60 | 增量校验周期（秒） |
 | `PROXYPOOL_CRAWL_INTERVAL` | 1800 | 爬取周期（秒） |
-| `PROXYPOOL_SOURCES` | 全部 15 个（见第五节） | 免费源白名单（空=关闭爬取） |
+| `PROXYPOOL_SOURCES` | 全部 17 个（见第五节） | 免费源白名单（空=关闭爬取） |
 | `PROXYPOOL_CRAWL_USE_POOL` | 1 | 抓代理站时用池内有效 IP 转发（0=直连） |
 | `PROXYPOOL_MAX_PAGES` | 3 | 每源自动翻页上限 |
 | `PROXYPOOL_CRAWL_CONCURRENCY` | 5 | 源间并发抓取数 |

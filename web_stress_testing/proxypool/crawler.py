@@ -404,6 +404,71 @@ class ProxyCrawler:
         text = await self._get_text(session, "http://www.66ip.cn/mo.php?tqsl=200", timeout=10)
         return parse_proxies_from_text(text)
 
+    async def _ipdongtai(self, session):
+        """IP动态（ipdongtai.com）HTML 表格：<td class="kdl-table-cell"> 解析。"""
+        urls = [f"https://www.ipdongtai.com/free/{i}" for i in range(1, self.max_pages + 1)]
+
+        def parser(text: str) -> List[Tuple[str, int]]:
+            pairs = []
+            for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", text, re.S):
+                cells = [re.sub(r"\s+", "", c)
+                         for c in re.findall(r"<td[^>]*class=['\"]kdl-table-cell['\"][^>]*>(.*?)</td>", tr, re.S)]
+                # 第 4 列是类型：HTTP(S) 等；socks 跳过（校验器暂不支持）
+                if len(cells) >= 4 and "sock" in cells[3].lower():
+                    continue
+                if len(cells) >= 2 and _valid(cells[0], cells[1]):
+                    pairs.append((cells[0], int(cells[1])))
+            return pairs
+        return await self._fetch_pages(session, urls, parser, timeout=10)
+
+    async def _proxyscrape(self, session):
+        """proxyscrape v4 API：JSON probes[]（proxy_format=protocolipport，形如 http://ip:port），文本兜底。"""
+        limit = 50
+        urls = [
+            "https://api.proxyscrape.com/v4/free-proxy-list/get?request=get_proxies"
+            f"&proxy_format=protocolipport&format=json&limit={limit}&skip={i * limit}"
+            for i in range(self.max_pages)
+        ]
+
+        async def one(u: str) -> List[Dict[str, Any]]:
+            text = await self._get_text(session, u, timeout=15)
+            try:
+                data = json.loads(text)
+            except Exception:
+                data = None
+            out: List[Dict[str, Any]] = []
+            items = (data or {}).get("proxies") or [] if isinstance(data, dict) else []
+            if not items:
+                for ip, port in parse_proxies_from_text(text):
+                    out.append({"ip": ip, "port": port, "protocol": "http",
+                                "source": "crawler:proxyscrape"})
+                return out
+            for item in items:
+                m = re.match(r"^([a-z0-9]+)://(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$", str(item), re.I)
+                if not m:
+                    continue
+                proto = m.group(1).lower()
+                if proto in ("socks4", "socks5"):
+                    continue
+                if proto not in ("http", "https"):
+                    proto = "http"
+                out.append({"ip": m.group(2), "port": int(m.group(3)), "protocol": proto,
+                            "source": "crawler:proxyscrape"})
+            return out
+
+        results = await asyncio.gather(*[one(u) for u in urls], return_exceptions=True)
+        ok = [r for r in results if not isinstance(r, Exception)]
+        if not ok:
+            raise next(r for r in results if isinstance(r, Exception))
+        rows = [d for r in ok for d in r]
+        seen, uniq = set(), []
+        for d in rows:
+            k = (d["ip"], d["port"], d["protocol"])
+            if k not in seen:
+                seen.add(k)
+                uniq.append(d)
+        return uniq
+
     # ------------------------------------------------------------------
     # 主入口
     # ------------------------------------------------------------------
@@ -511,6 +576,8 @@ SOURCES: Dict[str, Callable[[ProxyCrawler, aiohttp.ClientSession], Any]] = {
     "scdn": ProxyCrawler._scdn,
     "zdaye": ProxyCrawler._zdaye,
     "66ip": ProxyCrawler._ip66,
+    "ipdongtai": ProxyCrawler._ipdongtai,
+    "proxyscrape": ProxyCrawler._proxyscrape,
 }
 
 SOURCE_HOMEPAGE: Dict[str, str] = {
@@ -522,4 +589,6 @@ SOURCE_HOMEPAGE: Dict[str, str] = {
     "proxifly": "https://proxifly.dev/", "roundproxies": "https://roundproxies.com/free-proxy-list",
     "scdn": "https://proxy.scdn.io/", "zdaye": "https://www.zdaye.com/dayProxy.html",
     "66ip": "http://www.66ip.cn/",
+    "ipdongtai": "https://www.ipdongtai.com/",
+    "proxyscrape": "https://proxyscrape.com/",
 }

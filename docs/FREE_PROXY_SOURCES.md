@@ -1,4 +1,4 @@
-# 🕸 内置免费代理源清单（15 个）
+# 🕸 内置免费代理源清单（17 个）
 
 > 覆盖 jhao104/proxy_pool `fetcher/sources` 全部免费源 + 旧 66IP。
 > 解析规则参考 jhao104/proxy_pool（MIT）；所有抓取结果仍需过校验器“只保留有效”。
@@ -18,6 +18,7 @@
 | 小幻代理 ihuan | HTML | https://ip.ihuan.me/ | https://ip.ihuan.me/（先取 cookie 再抓） | 表格解析 | 18 |
 | 谷德代理 goodips | HTML | https://www.goodips.com/ | https://www.goodips.com/ | 列表解析 | 15 |
 | 66代理 daili66 | JSON | https://www.66daili.com/ | https://www.66daili.com/free/list?page=N&size=15 | data[].ip/.port/.protocol | 232 |
+| IP动态 ipdongtai | HTML | https://www.ipdongtai.com/ | https://www.ipdongtai.com/free/N | 表格解析（td.kdl-table-cell） | 24 |
 
 ## 二、本轮抽样无效（可能反爬/暂时为空，已自动冷却）
 
@@ -29,6 +30,7 @@
 | Proxifly | JSON | https://proxifly.dev/ | https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/all/data.json | 仅 CN + http | jsdelivr 国内网络偶不可达 |
 | 站大爷 zdaye | HTML | https://www.zdaye.com/dayProxy.html | https://www.zdaye.com/free/ → 最新帖详情页 | 分页（页间 sleep5s） | 依赖最新帖时间戳 |
 | 66IP（旧） | 文本 | http://www.66ip.cn/ | http://www.66ip.cn/mo.php?tqsl=200 | 文本行解析 | 站点常年不稳 |
+| Proxyscrape | JSON | https://proxyscrape.com/ | https://api.proxyscrape.com/v4/free-proxy-list/get?request=get_proxies&proxy_format=protocolipport&format=json&limit=N&skip=M | proxies[]（protocolipport） | 当前网络不可达，连通用后自动生效 |
 
 ## 三、快捷操作
 
