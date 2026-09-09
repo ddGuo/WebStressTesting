@@ -23,6 +23,7 @@ class PoolScheduler:
             max_pages=cfg.crawl_max_pages,
             source_concurrency=cfg.crawl_concurrency,
             use_pool=cfg.crawl_use_pool,
+            proxy_attempts=cfg.crawl_proxy_attempts,
         )
         self._tasks: List[asyncio.Task] = []
         self._scan_round = 0

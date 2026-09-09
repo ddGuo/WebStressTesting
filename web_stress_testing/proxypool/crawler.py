@@ -56,13 +56,16 @@ class ProxyCrawler:
 
     FAIL_THRESHOLD = 2        # 连续失败（网络异常或 0 结果）达到该次数 → 冷却禁用
     COOLDOWN_SECONDS = 3600   # 冷却时长（秒）
+    PROXY_FAIL_THRESHOLD = 2  # 供爬取使用的池内代理连续失败次数 → 暂时弃用
+    PROXY_BAN_SECONDS = 600   # 差代理弃用时长（秒）
 
     def __init__(self,
                  proxy_provider: Optional[Callable[[], Awaitable[List[str]]]] = None,
                  max_pages: int = 3,
                  source_concurrency: int = 5,
                  page_concurrency: int = 2,
-                 use_pool: bool = True):
+                 use_pool: bool = True,
+                 proxy_attempts: int = 2):
         """
         proxy_provider: 异步回调，返回可用代理 URL 列表（如 ["http://ip:port"]）；
                         返回空/None 表示直连（池空时自动退化）。
@@ -72,8 +75,11 @@ class ProxyCrawler:
         self.max_pages = max(1, int(max_pages))
         self.source_concurrency = max(1, int(source_concurrency))
         self.page_concurrency = max(1, int(page_concurrency))
+        self.proxy_attempts = max(0, int(proxy_attempts))
         self._proxies: List[str] = []
         self._pindex = 0
+        self._proxy_fails: Dict[str, int] = {}
+        self._bad_proxies: Dict[str, float] = {}
         self._health: Dict[str, Dict[str, Any]] = {
             name: {"fails": 0, "disabled_until": 0.0, "found": 0, "last_error": ""}
             for name in SOURCES
@@ -82,28 +88,72 @@ class ProxyCrawler:
     # ------------------------------------------------------------------
     # 代理轮换：做代理站抓取时，用池内有效 IP 转发，防本机 IP 被反爬
     # ------------------------------------------------------------------
+    def _is_bad_proxy(self, proxy: str, now: float) -> bool:
+        return self._bad_proxies.get(proxy, 0.0) > now
+
     async def _pick_proxy(self) -> Optional[str]:
-        if not self._proxies and self.proxy_provider is not None:
+        now = time.time()
+        if self.proxy_provider is not None and (
+                not self._proxies or all(self._is_bad_proxy(p, now) for p in self._proxies)):
             try:
                 self._proxies = [p for p in (await self.proxy_provider()) if p]
             except Exception as e:
                 log.warning("获取池内代理失败，本轮直连: %s", e)
                 self._proxies = []
-        if not self._proxies:
+        alive = [p for p in self._proxies if not self._is_bad_proxy(p, now)]
+        if not alive:
             return None  # 直连
-        p = self._proxies[self._pindex % len(self._proxies)]
+        p = alive[self._pindex % len(alive)]
         self._pindex += 1
         return p
+
+    def _note_proxy_fail(self, proxy: str, error: Exception) -> None:
+        fails = self._proxy_fails.get(proxy, 0) + 1
+        self._proxy_fails[proxy] = fails
+        if fails >= self.PROXY_FAIL_THRESHOLD:
+            self._bad_proxies[proxy] = time.time() + self.PROXY_BAN_SECONDS
+            log.info("爬取代理 %s 连续失败 %d 次，暂时弃用 %d 秒（%s）",
+                     proxy, fails, self.PROXY_BAN_SECONDS, str(error)[:60])
 
     # ------------------------------------------------------------------
     # 抓取工具
     # ------------------------------------------------------------------
     async def _get_text(self, session: aiohttp.ClientSession, url: str, timeout: float = 10.0,
                         ssl: bool = False) -> str:
-        proxy = await self._pick_proxy()
-        async with session.get(url, proxy=proxy, ssl=ssl,
-                               timeout=aiohttp.ClientTimeout(total=timeout)) as r:
-            return await r.text(errors="ignore")
+        """逐请求多代理尝试 + 直连兜底：不让一个坏代理毁掉整个源。"""
+        candidates = []
+        seen = set()
+        for _ in range(self.proxy_attempts):
+            p = await self._pick_proxy()
+            key = p or "\x00direct"
+            if key not in seen:
+                seen.add(key)
+                candidates.append(p)
+        if None not in candidates:
+            candidates.append(None)  # 直连兜底
+        last_exc: Optional[Exception] = None
+        for proxy in candidates:
+            if proxy is not None and self._is_bad_proxy(proxy, time.time()):
+                continue
+            try:
+                async with session.get(url, proxy=proxy, ssl=ssl,
+                                       timeout=aiohttp.ClientTimeout(total=timeout)) as r:
+                    if r.status >= 400:
+                        raise aiohttp.ClientResponseError(
+                            r.request_info, r.history,
+                            status=r.status, message=f"HTTP {r.status}")
+                    text = await r.text(errors="ignore")
+                    if not text.strip():
+                        raise RuntimeError("empty response body")
+                    return text
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                last_exc = e
+                if proxy is not None:
+                    self._note_proxy_fail(proxy, e)
+        assert last_exc is not None
+        raise last_exc
 
     async def _get_json(self, session: aiohttp.ClientSession, url: str, timeout: float = 10.0,
                         ssl: bool = False):

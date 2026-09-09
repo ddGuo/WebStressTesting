@@ -39,6 +39,7 @@ class ProxyPoolConfig:
     crawl_use_pool: bool = True              # 抓代理站时用池内有效 IP 转发（防反爬）
     crawl_max_pages: int = 3                 # 每源自动翻页上限
     crawl_concurrency: int = 5               # 源间并发抓取数
+    crawl_proxy_attempts: int = 2            # 每请求最多尝试几个池内代理（之后直连兜底）
     cleanup_interval: float = 300.0           # 清理周期（秒）
     heartbeat_interval: float = 60.0          # 心跳日志周期（秒）
 
@@ -70,6 +71,7 @@ class ProxyPoolConfig:
             crawl_interval=float(os.environ.get("PROXYPOOL_CRAWL_INTERVAL", cls.crawl_interval)),
             crawl_max_pages=int(os.environ.get("PROXYPOOL_MAX_PAGES", cls.crawl_max_pages)),
             crawl_concurrency=int(os.environ.get("PROXYPOOL_CRAWL_CONCURRENCY", cls.crawl_concurrency)),
+            crawl_proxy_attempts=int(os.environ.get("PROXYPOOL_CRAWL_PROXY_ATTEMPTS", cls.crawl_proxy_attempts)),
             log_level=os.environ.get("PROXYPOOL_LOG_LEVEL", cls.log_level),
         )
         cfg.crawl_use_pool = os.environ.get("PROXYPOOL_CRAWL_USE_POOL", "1").lower() in ("1", "true", "yes", "on")

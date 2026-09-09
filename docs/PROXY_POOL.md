@@ -99,11 +99,18 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 | 站大爷 | `zdaye` | HTML | 最新帖分页（页间 sleep 5s） |
 | 66IP（旧） | `66ip` | 文本 | 文本行解析 |
 
-### 自代理爬取（防反爬）
+### 自代理爬取（防反爬）+ 坏代理兜底
 
 抓取代理站时，爬虫会**轮换使用代理池内校验通过的有效代理作为转发出口**，
 避免本机/服务器 IP 被代理站反爬封禁；池为空或
 `PROXYPOOL_CRAWL_USE_POOL=0` 时自动退化为直连。
+
+免费代理质量参差，因此抓取请求做了健壮性处理：
+
+- **逐请求多代理尝试**：单个 URL 最多尝试 `PROXYPOOL_CRAWL_PROXY_ATTEMPTS`
+  （默认 2）个池内代理，全部失败后**直连兜底**；
+- **坏代理自动弃用**：某代理连续 2 次转发失败（超时/4xx-5xx/连接错误/空响应），
+  自动弃用 600 秒，避免坏代理拖垮整个源的抓取；已发现概率比用户之前的日志低很多。
 
 ### 并发 + 自动翻页（加速）
 
@@ -141,6 +148,7 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 | `PROXYPOOL_CRAWL_USE_POOL` | 1 | 抓代理站时用池内有效 IP 转发（0=直连） |
 | `PROXYPOOL_MAX_PAGES` | 3 | 每源自动翻页上限 |
 | `PROXYPOOL_CRAWL_CONCURRENCY` | 5 | 源间并发抓取数 |
+| `PROXYPOOL_CRAWL_PROXY_ATTEMPTS` | 2 | 每请求最多尝试几个池内代理（失败后直连兜底） |
 
 ## 七、自检
 
