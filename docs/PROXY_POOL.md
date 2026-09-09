@@ -108,6 +108,8 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 
 免费源质量参差、反爬频繁，抓取结果同样要过校验；建议生产用付费/自有的稳定代理。
 
+完整清单（首页/抓取地址/实测状态）见 [`FREE_PROXY_SOURCES.md`](FREE_PROXY_SOURCES.md)。
+
 ## 六、配置（环境变量）
 
 | 变量 | 默认 | 说明 |
