@@ -107,6 +107,14 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                        help="粘性代理：每个用户固定一个代理 IP（默认开）")
     g_req.add_argument("--no-proxy-sticky", dest="proxy_sticky", action="store_false",
                        help="关闭粘性代理")
+    g_req.add_argument("--proxy-check-target", dest="proxy_check_target", action="store_true", default=True,
+                       help="压测前按目标地址预检代理，只保留可达代理（默认开）")
+    g_req.add_argument("--no-proxy-check-target", dest="proxy_check_target", action="store_false",
+                       help="跳过目标预检")
+    g_req.add_argument("--proxy-check-timeout", type=float, default=3.0,
+                       help="目标预检单代理超时（秒，默认 3）")
+    g_req.add_argument("--proxy-fail-threshold", type=int, default=2,
+                       help="压测中代理失败达到该次数才本地剔除（默认 2）")
     g_req.add_argument("--timeout", type=float, default=30.0,
                        help="请求超时，秒 (默认: 30)")
     g_req.add_argument("--no-verify-ssl", action="store_true",
@@ -211,6 +219,9 @@ def build_config(args: argparse.Namespace) -> TestConfig:
         proxy_file=args.proxy_file or "",
         proxy_api=args.proxy_api or "",
         proxy_sticky=args.proxy_sticky,
+        proxy_check_target=args.proxy_check_target,
+        proxy_check_timeout=args.proxy_check_timeout,
+        proxy_fail_threshold=args.proxy_fail_threshold,
         args_text=" ".join(sys.argv[1:]),
     )
 
@@ -439,6 +450,14 @@ async def run(config: TestConfig) -> int:
     if allocator is not None and not config.quiet:
         console.print(f"  [dim]代理[/] {allocator.source} · 共 {allocator.size} 个 · "
                       f"粘性{'开' if config.proxy_sticky else '关'}")
+    if allocator is not None and config.proxy_check_target and allocator.size > 0:
+        dropped = await allocator.refine(config.target, timeout=config.proxy_check_timeout)
+        if allocator.size == 0:
+            console.print("[red]错误:[/] 目标预检后代理池为空（所有代理对目标不可达）")
+            return 1
+        if not config.quiet:
+            console.print(f"  [dim]代理预检[/] 对目标 {config.target} 可达 {allocator.size} 个，"
+                          f"剔除 {dropped} 个无效代理")
     user_cls = build_user_class(config, base_url, request_counter=lambda: aggregator.total,
                                 proxy_allocator=allocator)
     shape = build_shape(config, request_counter=lambda: aggregator.total)

@@ -89,6 +89,9 @@ class TestConfig:
     proxy_file: str = ""
     proxy_api: str = ""
     proxy_sticky: bool = True
+    proxy_check_target: bool = True   # 压测前按目标地址预检代理（只保留可达）
+    proxy_check_timeout: float = 3.0  # 预检单代理超时（秒）
+    proxy_fail_threshold: int = 2     # 压测中某代理失败达到该次数才被本地剔除
     args_text: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
@@ -120,6 +123,9 @@ class TestConfig:
                 "file": self.proxy_file,
                 "api": self.proxy_api,
                 "sticky": self.proxy_sticky,
+                "check_target": self.proxy_check_target,
+                "check_timeout": self.proxy_check_timeout,
+                "fail_threshold": self.proxy_fail_threshold,
             },
             "prometheus_port": self.prometheus_port,
             "args": self.args_text,

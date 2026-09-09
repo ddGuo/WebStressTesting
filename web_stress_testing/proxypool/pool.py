@@ -62,13 +62,17 @@ class ProxyAllocator:
     """压测进程内的代理分配器：粘性 = 每个用户创建时固定一个代理。"""
 
     def __init__(self, proxies: List[str], source: str, sticky: bool = True,
-                 api_url: str = ""):
+                 api_url: str = "", fail_threshold: int = 2):
         self._pool: List[str] = [p for p in proxies if p]
         self._source = source
         self._sticky = sticky
         self._api_url = api_url
+        self._fail_threshold = max(1, int(fail_threshold))
         self._cursor = 0
         self._failed: set = set()
+        self._fail_counts: Dict[str, int] = {}
+        self._direct_fallbacks = 0
+        self._refined_out = 0
         self._last_refill = 0.0
         self._stats: Dict[str, Dict[str, Any]] = {}
 
@@ -101,7 +105,8 @@ class ProxyAllocator:
             source = f"api:{api_url}"
         else:
             return None
-        return cls(proxies, source, sticky=config.proxy_sticky, api_url=api_url)
+        return cls(proxies, source, sticky=config.proxy_sticky, api_url=api_url,
+                  fail_threshold=config.proxy_fail_threshold)
 
     # ------------------------------------------------------------------
     def acquire_sync(self) -> Optional[str]:
@@ -117,6 +122,8 @@ class ProxyAllocator:
         if p is None and self._api_url:
             await self._refill()
             p = self.acquire_sync()
+        if p is None:
+            self._direct_fallbacks += 1
         return p
 
     async def _refill(self) -> None:
@@ -130,10 +137,41 @@ class ProxyAllocator:
             self._pool = merged
             self._failed = {f for f in self._failed if f in self._pool}
 
+    async def refine(self, check_url: str, timeout: float = 3.0,
+                     concurrency: int = 80) -> int:
+        """按目标地址预检：只保留对该目标可达的代理，返回剔除数量。"""
+        alive = [p for p in self._pool if p not in self._failed]
+        if not alive:
+            return 0
+        sem = asyncio.Semaphore(max(1, concurrency))
+        timeout_ = aiohttp.ClientTimeout(total=max(1.0, timeout))
+
+        async def ok(p: str) -> bool:
+            async with sem:
+                try:
+                    async with aiohttp.ClientSession(timeout=timeout_) as s:
+                        async with s.get(check_url, proxy=p, ssl=False) as r:
+                            await r.read()
+                            return r.status < 400
+                except Exception:
+                    return False
+
+        results = await asyncio.gather(*[ok(p) for p in alive])
+        dropped = {p for p, good in zip(alive, results) if not good}
+        if dropped:
+            self._pool = [p for p in self._pool if p not in dropped]
+            self._failed = {f for f in self._failed if f in self._pool}
+        self._refined_out += len(dropped)  # 预检剔除单独统计，不计入运行期 ok/fail
+        return len(dropped)
+
     def mark_failed(self, proxy: str) -> None:
-        if proxy:
+        """失败累计达阈值才本地剔除（避免一次抖动误杀）。"""
+        if not proxy:
+            return
+        n = self._fail_counts.get(proxy, 0) + 1
+        self._fail_counts[proxy] = n
+        if n >= self._fail_threshold:
             self._failed.add(proxy)
-            self._record(proxy, False, 0)
 
     def record(self, proxy: str, ok: bool, ms: float) -> None:
         if proxy:
@@ -145,6 +183,7 @@ class ProxyAllocator:
         if ok:
             s["latency_sum"] += ms
             s["n"] += 1
+            self._fail_counts[proxy] = 0
 
     def stats(self) -> Dict[str, Any]:
         total_ok = sum(s["ok"] for s in self._stats.values())
@@ -164,6 +203,9 @@ class ProxyAllocator:
             "source": self._source,
             "sticky": self._sticky,
             "pool_size": self.size,
+            "fail_threshold": self._fail_threshold,
+            "direct_fallbacks": self._direct_fallbacks,
+            "refined_out": self._refined_out,
             "total_ok": total_ok,
             "total_fail": total_fail,
             "proxies": rows,
