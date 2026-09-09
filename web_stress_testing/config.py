@@ -85,6 +85,10 @@ class TestConfig:
     quiet: bool = False
     loglevel: str = "WARNING"
     prometheus_port: int = 0
+    proxy: str = ""
+    proxy_file: str = ""
+    proxy_api: str = ""
+    proxy_sticky: bool = True
     args_text: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
@@ -111,6 +115,12 @@ class TestConfig:
             },
             "report_dir": self.report_dir,
             "name": self.name,
+            "proxy": {
+                "single": self.proxy,
+                "file": self.proxy_file,
+                "api": self.proxy_api,
+                "sticky": self.proxy_sticky,
+            },
             "prometheus_port": self.prometheus_port,
             "args": self.args_text,
         }

@@ -52,6 +52,7 @@ WebStressTesting 是一款**现代化的网站压测（负载测试）工具**�
 - **机器可读产物**：`report.json` / `series.csv` / `failures.csv` / `config.json`
 - **Prometheus 指标端点**：`--prometheus-port 8089` 暴露 AioTest 原生 `/metrics`
 - **Windows 高并发**：>256 用户自动切换 Proactor（IOCP）事件循环，突破 `select()` 文件描述符上限
+- **内置代理池 ProxyPool**：自建“抓取 → 校验 → 存储(MySQL) → API”闭环，只保留有效代理；压测支持**一个用户一个 IP**（粘性代理、故障自动换绑）
 
 ## 安装
 
@@ -128,6 +129,10 @@ WebStressTesting example.com -u 20 -d 30
 | `--report-dir` | 报告输出目录 | `./reports/<name>_<时间戳>` |
 | `--name` | 本次测试名称 | 目标域名 |
 | `--prometheus-port` | AioTest 指标端口（0=随机） | 0 |
+| `--proxy` | 单代理，如 `ip:port` 或 `http://ip:port` | 无 |
+| `--proxy-file` | 代理列表文件（每行一个） | 无 |
+| `--proxy-api` | 代理池服务地址（如 `http://127.0.0.1:5010`） | 无 |
+| `--proxy-sticky` / `--no-proxy-sticky` | 每个用户固定一个代理 IP（粘性） | 开 |
 | `--loop-policy` | Windows 事件循环：`auto`/`selector`/`proactor` | auto |
 | `--loglevel` | AioTest 日志级别（写入 aiotest.log） | WARNING |
 
@@ -220,6 +225,15 @@ A: 均计为失败（错误率），并记录到 `failures.csv`；4xx（如 404�
 A: 不会。压测模式下 `max_retries=0`，每个请求只发一次，避免重试扭曲指标。
 
 ## 自检
+
+```bash
+python scripts/self_check.py            # 主流程
+python scripts/self_check_proxypool.py  # 代理池端到端（本地代理 + 一用户一IP）
+```
+
+详见 [`docs/PROXY_POOL.md`](docs/PROXY_POOL.md)（内置代理池：服务、API、校验机制、压测接入）。
+
+## 原自检
 
 ```bash
 python scripts/self_check.py

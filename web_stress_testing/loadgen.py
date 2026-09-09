@@ -8,13 +8,15 @@
 from __future__ import annotations
 
 import asyncio
+import time as _time
 from typing import Callable, Optional
 
 from web_stress_testing.config import TestConfig
 
 
-def build_user_class(config: TestConfig, base_url: str, request_counter=None):
-    """根据请求配置动态生成 HttpUser 子类。"""
+def build_user_class(config: TestConfig, base_url: str, request_counter=None,
+                         proxy_allocator=None):
+    """根据请求配置动态生成 HttpUser 子类。proxy_allocator 提供"一个用户一个IP"。"""
     from aiotest import HttpUser
 
     request = config.request
@@ -50,12 +52,29 @@ def build_user_class(config: TestConfig, base_url: str, request_counter=None):
                 hdrs = kwargs.setdefault("headers", {})
                 hdrs.setdefault("Content-Type", content_type)
 
-        async with self.client.request(
-            method, path, name=path, **kwargs
-        ) as resp:
-            # 4xx / 5xx 视为失败：抛 AssertionError 让 AioTest 记录错误指标
-            if resp.status >= 400:
-                raise AssertionError(f"HTTP {resp.status}")
+        proxy = getattr(self, "_proxy", None)
+        if proxy:
+            kwargs["proxy"] = proxy
+        t0 = _time.perf_counter()
+        try:
+            async with self.client.request(method, path, name=path, **kwargs) as resp:
+                # 4xx / 5xx 视为失败：抛 AssertionError 让 AioTest 记录错误指标
+                if resp.status >= 400:
+                    raise AssertionError(f"HTTP {resp.status}")
+        except AssertionError:
+            if self._allocator is not None:
+                self._allocator.record(proxy, False, (_time.perf_counter() - t0) * 1000)
+            raise
+        except Exception:
+            ms = (_time.perf_counter() - t0) * 1000
+            if self._allocator is not None:
+                self._allocator.record(proxy, False, ms)
+                self._allocator.mark_failed(proxy)
+                # 代理可疑 -> 下次换一个健康代理
+                self._proxy = await self._allocator.acquire()
+            raise
+        if self._allocator is not None:
+            self._allocator.record(proxy, True, (_time.perf_counter() - t0) * 1000)
 
     def __init__(self):
         HttpUser.__init__(
@@ -67,6 +86,8 @@ def build_user_class(config: TestConfig, base_url: str, request_counter=None):
             max_retries=max_retries,
             verify_ssl=verify_ssl,
         )
+        self._allocator = proxy_allocator
+        self._proxy = proxy_allocator.acquire_sync() if proxy_allocator is not None else None
 
     user_cls = type(
         "GeneratedPressureUser",

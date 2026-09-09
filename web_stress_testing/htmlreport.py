@@ -232,7 +232,8 @@ def _status_class_summary(status_codes: Dict[str, int]) -> Dict[str, int]:
 
 def build_html_report(cfg: Dict[str, Any], summary: Dict[str, Any],
                       series: List[Dict[str, Any]], started_at: str,
-                      ended_at: str, interrupted: bool = False) -> str:
+                      ended_at: str, interrupted: bool = False,
+                      proxies: Optional[Dict[str, Any]] = None) -> str:
     lat = summary.get("latency_ms", {})
     sc = summary.get("status_codes", {})
     scs = _status_class_summary(sc)
@@ -334,6 +335,25 @@ def build_html_report(cfg: Dict[str, Any], summary: Dict[str, Any],
         if interrupted else ""
     )
 
+    # 代理池统计
+    proxy_section = ""
+    if proxies and proxies.get("enabled"):
+        proxy_rows = ""
+        for r in proxies.get("proxies", []):
+            proxy_rows += (
+                f"<tr><td class=\"mono\">{esc(r.get('proxy', ''))}</td>"
+                f"<td>{r.get('ok', 0):,}</td><td>{r.get('fail', 0):,}</td>"
+                f"<td>{r.get('avg_ms', 0):.1f}</td>"
+                f"<td>{'<span class=\"bad\">已剔除</span>' if r.get('failed_out') else '正常'}</td></tr>\n"
+            )
+        proxy_section = f"""
+  <h2>代理池（{esc(proxies.get('source', ''))} · 共 {proxies.get('pool_size', 0)} 个 · 粘性{'开' if proxies.get('sticky') else '关'}）</h2>
+  <table>
+    <thead><tr><th>代理</th><th>成功</th><th>失败</th><th>平均延迟(ms)</th><th>状态</th></tr></thead>
+    <tbody>{proxy_rows}</tbody>
+  </table>
+"""
+
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -409,6 +429,7 @@ def build_html_report(cfg: Dict[str, Any], summary: Dict[str, Any],
     <tbody>{sample_rows}</tbody>
   </table>
 
+  {proxy_section}
   <h2>测试信息</h2>
   <table><tbody>{meta_rows}</tbody></table>
 

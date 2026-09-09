@@ -55,6 +55,7 @@ in-process, and aggregates metrics by subscribing to AioTest's `request_metrics`
 - **Machine-readable artifacts**: `report.json` / `series.csv` / `failures.csv` / `config.json`
 - **Prometheus endpoint**: `--prometheus-port 8089` exposes AioTest's native `/metrics`
 - **High concurrency on Windows**: automatically switches to Proactor (IOCP) beyond 256 users, bypassing the `select()` file-descriptor limit
+- **Built-in ProxyPool**: a self-hosted crawl → validate → store (MySQL) → API pipeline that keeps only valid proxies; flag-in supported via `--proxy-api` / `--proxy-file` / `--proxy` with **one user = one IP** (sticky, auto re-bind on failure)
 
 ## Installation
 
@@ -131,6 +132,10 @@ Open `report.html` for the full chart report (the image above is an example).
 | `--report-dir` | Report output directory | `./reports/<name>_<timestamp>` |
 | `--name` | Test name | target host |
 | `--prometheus-port` | AioTest metrics port (0=random) | 0 |
+| `--proxy` | Single proxy, e.g. `ip:port` or `http://ip:port` | none |
+| `--proxy-file` | Proxy list file (one per line) | none |
+| `--proxy-api` | ProxyPool service URL (e.g. `http://127.0.0.1:5010`) | none |
+| `--proxy-sticky` / `--no-proxy-sticky` | One proxy IP per user (sticky) | on |
 | `--loop-policy` | Windows event loop: `auto`/`selector`/`proactor` | auto |
 | `--loglevel` | AioTest log level (written to aiotest.log) | WARNING |
 
@@ -228,6 +233,15 @@ A: No. `max_retries=0` in load-testing mode — each request is sent exactly onc
 cannot distort the metrics.
 
 ## Self Check
+
+```bash
+python scripts/self_check.py            # main flow
+python scripts/self_check_proxypool.py  # ProxyPool e2e (local proxies + one-user-one-IP)
+```
+
+See [`docs/PROXY_POOL.md`](docs/PROXY_POOL.md) for the built-in ProxyPool: service, API, validation, stress-test integration.
+
+## Legacy Self-Check
 
 ```bash
 python scripts/self_check.py

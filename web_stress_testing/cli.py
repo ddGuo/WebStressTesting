@@ -38,6 +38,7 @@ from web_stress_testing.dashboard import Dashboard
 from web_stress_testing.htmlreport import build_html_report
 from web_stress_testing.loadgen import build_shape, build_user_class
 from web_stress_testing.metrics import MetricsAggregator
+from web_stress_testing.proxypool.pool import ProxyAllocator
 from web_stress_testing.report import write_config_json, write_failures_csv, write_json, write_series_csv
 from web_stress_testing.utils import fmt_bytes, fmt_ms, fmt_pct, fmt_rps, safe_div
 
@@ -99,6 +100,13 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     g_req.add_argument("--body", default=None,
                        help="请求体：JSON 字符串，或 @文件路径（POST/PUT 等）")
     g_req.add_argument("--content-type", default=None, help="Content-Type（配合 --body）")
+    g_req.add_argument("--proxy", default=None, help="单代理，如 http://user:pass@ip:port 或 ip:port")
+    g_req.add_argument("--proxy-file", default=None, help="代理列表文件（每行一个 ip:port 或 protocol://ip:port）")
+    g_req.add_argument("--proxy-api", default=None, help="代理池服务地址，如 http://127.0.0.1:5010")
+    g_req.add_argument("--proxy-sticky", dest="proxy_sticky", action="store_true", default=True,
+                       help="粘性代理：每个用户固定一个代理 IP（默认开）")
+    g_req.add_argument("--no-proxy-sticky", dest="proxy_sticky", action="store_false",
+                       help="关闭粘性代理")
     g_req.add_argument("--timeout", type=float, default=30.0,
                        help="请求超时，秒 (默认: 30)")
     g_req.add_argument("--no-verify-ssl", action="store_true",
@@ -199,6 +207,10 @@ def build_config(args: argparse.Namespace) -> TestConfig:
         quiet=args.quiet,
         loglevel=args.loglevel,
         prometheus_port=args.prometheus_port,
+        proxy=args.proxy or "",
+        proxy_file=args.proxy_file or "",
+        proxy_api=args.proxy_api or "",
+        proxy_sticky=args.proxy_sticky,
         args_text=" ".join(sys.argv[1:]),
     )
 
@@ -415,7 +427,20 @@ async def run(config: TestConfig) -> int:
     aggregator = MetricsAggregator()
     await request_metrics.add_handler(aggregator.on_request_metrics)
 
-    user_cls = build_user_class(config, base_url, request_counter=lambda: aggregator.total)
+    # 代理池（可选）：粘性分配 -> 一个用户一个 IP
+    try:
+        allocator = await ProxyAllocator.create(config)
+    except Exception as e:
+        console.print(f"[red]错误:[/] 初始化代理池失败: {e}")
+        return 1
+    if allocator is not None and allocator.size == 0:
+        console.print("[red]错误:[/] 代理池为空（--proxy-file / --proxy-api 未取得可用代理）")
+        return 1
+    if allocator is not None and not config.quiet:
+        console.print(f"  [dim]代理[/] {allocator.source} · 共 {allocator.size} 个 · "
+                      f"粘性{'开' if config.proxy_sticky else '关'}")
+    user_cls = build_user_class(config, base_url, request_counter=lambda: aggregator.total,
+                                proxy_allocator=allocator)
     shape = build_shape(config, request_counter=lambda: aggregator.total)
 
     opts = SimpleNamespace(
@@ -475,6 +500,7 @@ async def run(config: TestConfig) -> int:
     summary["elapsed_seconds"] = round(elapsed_wall, 3)
 
     # ---------- 输出报告 ----------
+    proxy_stats = allocator.stats() if allocator is not None else None
     report_json: Dict[str, Any] = {
         "meta": {
             "tool": f"WebStressTesting {__version__}",
@@ -487,6 +513,7 @@ async def run(config: TestConfig) -> int:
         },
         "summary": summary,
         "series": aggregator.series,
+        "proxy_pool": proxy_stats,
     }
     write_json(os.path.join(config.report_dir, "report.json"), report_json)
     write_series_csv(os.path.join(config.report_dir, "series.csv"), aggregator.series)
@@ -500,6 +527,7 @@ async def run(config: TestConfig) -> int:
         started_at=started_wall,
         ended_at=ended_wall,
         interrupted=interrupted,
+        proxies=proxy_stats,
     )
     html_path = os.path.join(config.report_dir, "report.html")
     with open(html_path, "w", encoding="utf-8") as f:
