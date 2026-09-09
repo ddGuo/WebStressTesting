@@ -36,6 +36,9 @@ class ProxyPoolConfig:
     check_interval: float = 60.0              # 增量校验周期（秒）
     full_check_interval: float = 3600.0       # 全量深检周期（秒）
     crawl_interval: float = 1800.0            # 爬取周期（秒）
+    crawl_use_pool: bool = True              # 抓代理站时用池内有效 IP 转发（防反爬）
+    crawl_max_pages: int = 3                 # 每源自动翻页上限
+    crawl_concurrency: int = 5               # 源间并发抓取数
     cleanup_interval: float = 300.0           # 清理周期（秒）
     heartbeat_interval: float = 60.0          # 心跳日志周期（秒）
 
@@ -65,8 +68,11 @@ class ProxyPoolConfig:
             check_interval=float(os.environ.get("PROXYPOOL_CHECK_INTERVAL", cls.check_interval)),
             heartbeat_interval=float(os.environ.get("PROXYPOOL_HEARTBEAT", cls.heartbeat_interval)),
             crawl_interval=float(os.environ.get("PROXYPOOL_CRAWL_INTERVAL", cls.crawl_interval)),
+            crawl_max_pages=int(os.environ.get("PROXYPOOL_MAX_PAGES", cls.crawl_max_pages)),
+            crawl_concurrency=int(os.environ.get("PROXYPOOL_CRAWL_CONCURRENCY", cls.crawl_concurrency)),
             log_level=os.environ.get("PROXYPOOL_LOG_LEVEL", cls.log_level),
         )
+        cfg.crawl_use_pool = os.environ.get("PROXYPOOL_CRAWL_USE_POOL", "1").lower() in ("1", "true", "yes", "on")
         sources = os.environ.get("PROXYPOOL_SOURCES")
         if sources is not None:
             cfg.crawler_sources = [s.strip() for s in sources.split(",") if s.strip()]

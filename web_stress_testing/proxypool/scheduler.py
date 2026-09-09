@@ -18,9 +18,21 @@ class PoolScheduler:
     def __init__(self, cfg: ProxyPoolConfig, storage: BaseStorage):
         self.cfg = cfg
         self.storage = storage
-        self.crawler = ProxyCrawler()
+        self.crawler = ProxyCrawler(
+            proxy_provider=self._pool_proxy_provider,
+            max_pages=cfg.crawl_max_pages,
+            source_concurrency=cfg.crawl_concurrency,
+            use_pool=cfg.crawl_use_pool,
+        )
         self._tasks: List[asyncio.Task] = []
         self._scan_round = 0
+
+    async def _pool_proxy_provider(self) -> List[str]:
+        """供爬虫使用的池内有效代理（抓代理站时转发请求，防反爬）。"""
+        if not self.cfg.crawl_use_pool:
+            return []
+        rows = await asyncio.to_thread(self.storage.get_random, 50)
+        return [f"{r.get('protocol', 'http')}://{r['ip']}:{r['port']}" for r in rows]
 
     async def start(self) -> None:
         # 启动时先做一次"全量深检"：把池里待校验/过期代理全部过一遍

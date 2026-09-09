@@ -99,6 +99,19 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 | 站大爷 | `zdaye` | HTML | 最新帖分页（页间 sleep 5s） |
 | 66IP（旧） | `66ip` | 文本 | 文本行解析 |
 
+### 自代理爬取（防反爬）
+
+抓取代理站时，爬虫会**轮换使用代理池内校验通过的有效代理作为转发出口**，
+避免本机/服务器 IP 被代理站反爬封禁；池为空或
+`PROXYPOOL_CRAWL_USE_POOL=0` 时自动退化为直连。
+
+### 并发 + 自动翻页（加速）
+
+- **源间并发**：`PROXYPOOL_CRAWL_CONCURRENCY`（默认 5）个源同时抓取；
+- **自动翻页**：每源最多翻 `PROXYPOOL_MAX_PAGES`（默认 3）页
+  （kuaidaili / ip89 / geonode / roundproxies / scdn / freevpnnode /
+  zdaye 等；kuaidaili、zdaye 对页间做了限速 sleep，避免被封锁）。
+
 ### 无效源自动过滤
 
 爬虫对每个源维护健康状态：**连续 2 次抓取失败（网络异常或 0 条结果）→
@@ -125,6 +138,9 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 | `PROXYPOOL_CHECK_INTERVAL` | 60 | 增量校验周期（秒） |
 | `PROXYPOOL_CRAWL_INTERVAL` | 1800 | 爬取周期（秒） |
 | `PROXYPOOL_SOURCES` | 全部 15 个（见第五节） | 免费源白名单（空=关闭爬取） |
+| `PROXYPOOL_CRAWL_USE_POOL` | 1 | 抓代理站时用池内有效 IP 转发（0=直连） |
+| `PROXYPOOL_MAX_PAGES` | 3 | 每源自动翻页上限 |
+| `PROXYPOOL_CRAWL_CONCURRENCY` | 5 | 源间并发抓取数 |
 
 ## 七、自检
 
