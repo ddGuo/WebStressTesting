@@ -287,7 +287,12 @@ class ProxyCrawler:
         return pairs
 
     async def _ip3366(self, session):
-        urls = [f"http://www.ip3366.net/free/?stype={s}" for s in (1, 2)]
+        # stype=1/2，首页用无参 URL（&page=1 会触发 WAF 521），第 2..N 页追加 &page=N
+        urls = []
+        for stype in ("1", "2"):
+            urls.append(f"http://www.ip3366.net/free/?stype={stype}")
+            for i in range(2, self.max_pages + 1):
+                urls.append(f"http://www.ip3366.net/free/?stype={stype}&page={i}")
 
         def parser(text):
             return [(m.group(1), int(m.group(2))) for m in

@@ -102,6 +102,32 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 | Proxyscrape | `proxyscrape` | JSON | v4 API（protocolipport，skip 分页） |
 | ProxyCompass | `proxycompass` | 下载txt | 主页取 nonce → admin-ajax proxylister_download |
 
+### 翻页审计（默认每源最多 10 页，`PROXYPOOL_MAX_PAGES`）
+
+| 源 | 分页方式 | 达到 10 页 |
+|---|---|---|
+| kuaidaili | `inha/intr × page=1..N`（页间 sleep 1s） | ✅ |
+| ip3366 | `stype=1/2 × page=2..N`（page=1 用无参 URL 避 WAF） | ✅ |
+| ip89 | `index_1..N.html` | ✅ |
+| daili66 | `/free/list?page=N`（服务端忽略翻页，单次返回全量 600+，去重） | ✅（全量） |
+| geonode | `?page=N` | ✅ |
+| ipdongtai | `/free/N` | ✅ |
+| proxyscrape | `limit/skip` 分页 | ✅ |
+| roundproxies | `?page=N` | ✅ |
+| scdn | `page=N` | ✅ |
+| zdaye | “下一页”链接（页间 sleep 5s） | ✅ |
+| proxifly | 单次 JSON 全量 | ✅（全量） |
+| docip | 单次 JSON 全量 | ✅（全量） |
+| proxycompass | 单次下载全量（自动刷新 nonce） | ✅（全量） |
+| 66ip | 单次文本全量 | ✅（全量） |
+| freevpnnode | `/free-proxy/{N}/`（第 2 页起实测为空） | ⚠ 分页存在但多空页 |
+| goodips | 站点无分页（index_2 / /2/ 均 404） | ⚠ 单页 |
+| ihuan | `?page=N` 内容不变（前端分页） | ⚠ 单页 |
+| kxdaili | 2 个固定 URL | ⚠ 站点 500 已失效（自动过滤） |
+
+> 单次全量类源一次请求即取回全部数据，无需翻页；“⚠”类按站点实际能力处理，
+> 无效源会被连续失败自动冷却、到期自动重试。
+
 ### 自代理爬取（防反爬）+ 坏代理兜底
 
 抓取代理站时，爬虫会**轮换使用代理池内校验通过的有效代理作为转发出口**，

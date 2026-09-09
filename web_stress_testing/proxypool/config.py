@@ -37,7 +37,7 @@ class ProxyPoolConfig:
     full_check_interval: float = 3600.0       # 全量深检周期（秒）
     crawl_interval: float = 1800.0            # 爬取周期（秒）
     crawl_use_pool: bool = True              # 抓代理站时用池内有效 IP 转发（防反爬）
-    crawl_max_pages: int = 3                 # 每源自动翻页上限
+    crawl_max_pages: int = 10                # 每源自动翻页上限（不少于10页）
     crawl_concurrency: int = 5               # 源间并发抓取数
     crawl_proxy_attempts: int = 2            # 每请求最多尝试几个池内代理（之后直连兜底）
     cleanup_interval: float = 300.0           # 清理周期（秒）
