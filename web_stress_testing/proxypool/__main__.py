@@ -30,6 +30,7 @@ def setup_logging(level: str) -> None:
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s | %(levelname)8s | %(name)s | %(message)s",
+        force=True,
     )
 
 
@@ -121,14 +122,46 @@ async def cmd_serve(cfg: ProxyPoolConfig) -> int:
     site = web.TCPSite(runner, cfg.api_host, cfg.api_port)
     await site.start()
     print(f"ProxyPool 服务已启动: http://{cfg.api_host}:{cfg.api_port} "
-          f"(存储={'sqlite:' + cfg.db_url if cfg.db_url else 'mysql'})")
+          f"(存储={'sqlite:' + cfg.db_url if cfg.db_url else 'mysql'})", flush=True)
     await scheduler.start()
-    print("调度器已启动: 抓取/校验/清理 循环运行中")
+    print("调度器已启动: 抓取/校验/清理 循环运行中", flush=True)
+
+    # 启动即活动：立刻清理一次，并异步执行一轮爬取（API 不阻塞）
+    await scheduler.cleanup_pass()
+
+    async def boot_crawl():
+        await asyncio.sleep(2)
+        stats = await scheduler.crawl_pass()
+        dead = [s["source"] for s in scheduler.crawler.source_status() if not s["alive"]]
+        print(f"[启动爬取] 本轮新增候选 {stats} 个；无效源（冷却）: {', '.join(dead) if dead else '无'}", flush=True)
+
+    asyncio.create_task(boot_crawl())
+
+    # 周期心跳：让运行状态可见
+    async def heartbeat():
+        while True:
+            try:
+                await asyncio.sleep(cfg.heartbeat_interval)
+                total = await asyncio.to_thread(storage.count, False)
+                valid = await asyncio.to_thread(storage.count, True)
+                dead = [s["source"] for s in scheduler.crawler.source_status() if not s["alive"]]
+                print(f"[心跳] 代理池 总={total} 有效={valid} 失效/冷却源={len(dead)} "
+                      f"{('(' + ', '.join(dead) + ')') if dead else ''}", flush=True)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logging.getLogger("proxypool").warning("心跳异常: %s", e)
+
+    hb = asyncio.create_task(heartbeat())
+    total = await asyncio.to_thread(storage.count, False)
+    valid = await asyncio.to_thread(storage.count, True)
+    print(f"当前代理池: 总记录 {total}，有效 {valid}", flush=True)
     try:
         await asyncio.Event().wait()
     except (KeyboardInterrupt, asyncio.CancelledError):
         pass
     finally:
+        hb.cancel()
         await scheduler.stop()
         await runner.cleanup()
         storage.close()

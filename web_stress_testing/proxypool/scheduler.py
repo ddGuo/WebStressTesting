@@ -62,6 +62,8 @@ class PoolScheduler:
     async def validate_pass(self, limit: int = 500) -> Dict:
         due = await asyncio.to_thread(self.storage.due_for_check, limit)
         if not due:
+            total = await asyncio.to_thread(self.storage.count, True)
+            log.info("校验: 暂无待检代理（池内均新鲜，有效 %d 个）", total)
             return {"total": 0, "ok": 0, "fail": 0, "deleted": 0}
         stats = await validate_and_apply(self.cfg, self.storage, due, log)
         log.info("校验: 本批 %d，通过 %d，失败 %d，删除 %d", stats["total"], stats["ok"],
@@ -72,6 +74,8 @@ class PoolScheduler:
         n = await asyncio.to_thread(self.storage.cleanup)
         if n:
             log.info("清理: 移除失效/超龄代理 %d 个", n)
+        else:
+            log.info("清理: 未发现需要清理的记录")
         return n
 
     # ------------------------------------------------------------------

@@ -37,6 +37,7 @@ class ProxyPoolConfig:
     full_check_interval: float = 3600.0       # 全量深检周期（秒）
     crawl_interval: float = 1800.0            # 爬取周期（秒）
     cleanup_interval: float = 300.0           # 清理周期（秒）
+    heartbeat_interval: float = 60.0          # 心跳日志周期（秒）
 
     # ---- 抓取源（可多个；置空列表即禁用爬取）----
     crawler_sources: List[str] = field(default_factory=lambda: [
@@ -62,9 +63,11 @@ class ProxyPoolConfig:
             fail_threshold=int(os.environ.get("PROXYPOOL_FAIL_THRESHOLD", cls.fail_threshold)),
             ttl_seconds=int(os.environ.get("PROXYPOOL_TTL", cls.ttl_seconds)),
             check_interval=float(os.environ.get("PROXYPOOL_CHECK_INTERVAL", cls.check_interval)),
+            heartbeat_interval=float(os.environ.get("PROXYPOOL_HEARTBEAT", cls.heartbeat_interval)),
             crawl_interval=float(os.environ.get("PROXYPOOL_CRAWL_INTERVAL", cls.crawl_interval)),
             log_level=os.environ.get("PROXYPOOL_LOG_LEVEL", cls.log_level),
         )
-        if os.environ.get("PROXYPOOL_SOURCES"):
-            cfg.crawler_sources = [s.strip() for s in os.environ["PROXYPOOL_SOURCES"].split(",") if s.strip()]
+        sources = os.environ.get("PROXYPOOL_SOURCES")
+        if sources is not None:
+            cfg.crawler_sources = [s.strip() for s in sources.split(",") if s.strip()]
         return cfg
