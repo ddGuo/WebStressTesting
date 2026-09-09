@@ -43,8 +43,11 @@ class PoolScheduler:
         if not self.cfg.crawler_sources:
             return 0
         proxies = await self.crawler.crawl(self.cfg.crawler_sources)
+        dead = [s["source"] for s in self.crawler.source_status() if not s["alive"]]
+        if dead:
+            log.info("无效源已自动过滤（冷却中）: %s", ", ".join(dead))
         if not proxies:
-            log.warning("抓取未获取到新代理（来源可能反爬/变化）")
+            log.warning("本轮抓取未获取到新代理（全部来源为空/被过滤）")
             return 0
         # 先入库（去重），再对新增项立即校验
         added = 0

@@ -39,7 +39,11 @@ class ProxyPoolConfig:
     cleanup_interval: float = 300.0           # 清理周期（秒）
 
     # ---- 抓取源（可多个；置空列表即禁用爬取）----
-    crawler_sources: List[str] = field(default_factory=lambda: ["kuaidaili", "ip3366", "66ip"])
+    crawler_sources: List[str] = field(default_factory=lambda: [
+        "kuaidaili", "ip3366", "ip89", "kxdaili",
+        "daili66", "docip", "freevpnnode", "geonode", "goodips", "ihuan",
+        "proxifly", "roundproxies", "scdn", "zdaye", "66ip",
+    ])
 
     # ---- 日志 ----
     log_level: str = "INFO"

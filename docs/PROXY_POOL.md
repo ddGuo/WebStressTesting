@@ -74,16 +74,37 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 - **统计**：`report.json` 的 `proxy_pool` 字段 + HTML 报告“代理池”表格
   （每个代理的成功/失败/平均延迟/状态）。
 
-## 五、免费源抓取（可选）
+## 五、免费源抓取（默认开启全部 15 个）
 
-优先级建议：**文件/API 导入 > 免费源爬取**。内置 3 个可插拔免费源，
-默认开启（`PROXYPOOL_SOURCES=kuaidaili,ip3366,66ip`，逗号分隔，置空即禁用）：
+优先级建议：**文件/API 导入 > 免费源爬取**。内置源覆盖
+[jhao104/proxy_pool fetcher/sources](https://github.com/jhao104/proxy_pool/tree/master/fetcher/sources)
+的全部免费源（解析规则参考其实现，MIT），默认开启，可用
+`PROXYPOOL_SOURCES=kuaidaili,ip3366`（逗号分隔）自定义白名单，置空即关闭爬取：
 
-| 源 | 名称 | 说明 |
-|---|---|---|
-| 快代理免费 | `kuaidaili` | HTML 表格解析 |
-| 云代理 | `ip3366` | HTML 表格解析 |
-| 66IP | `66ip` | 文本行解析 |
+| 源 | 名称 | 类型 | 抓取方式 |
+|---|---|---|---|
+| 快代理 | `kuaidaili` | HTML | 表格正则（页间 sleep 1s） |
+| 云代理 | `ip3366` | HTML | 表格正则（2 页） |
+| 89免费代理 | `ip89` | HTML | 表格正则 |
+| 开心代理 | `kxdaili` | HTML | 表格解析（2 页） |
+| 66代理 | `daili66` | JSON | `api.66daili.com/?format=json` |
+| 稻壳代理 | `docip` | JSON | `docip.net/data/free.json` |
+| FreeVPNNode | `freevpnnode` | HTML+文本 | 表格 + 文本兜底 |
+| Geonode | `geonode` | JSON | proxylist API（limit=100） |
+| 谷德代理 | `goodips` | HTML | 列表解析 |
+| 小幻代理 | `ihuan` | HTML | 表格解析（先取 cookie） |
+| Proxifly | `proxifly` | JSON | jsdelivr 数据（仅 CN+http） |
+| Roundproxies | `roundproxies` | JSON | RoundAPI（limit=50） |
+| SCDN | `scdn` | JSON | table_html/data/文本三重兜底 |
+| 站大爷 | `zdaye` | HTML | 最新帖分页（页间 sleep 5s） |
+| 66IP（旧） | `66ip` | 文本 | 文本行解析 |
+
+### 无效源自动过滤
+
+爬虫对每个源维护健康状态：**连续 2 次抓取失败（网络异常或 0 条结果）→
+自动进入 3600 秒冷却禁用**，不再反复请求无效网站；冷却到期后自动重试，
+恢复后重新纳入抓取。各源实时状态可通过 `serve` 日志或 `source_status()` 查看
+（报告中也会输出“已自动过滤”的源列表）。
 
 免费源质量参差、反爬频繁，抓取结果同样要过校验；建议生产用付费/自有的稳定代理。
 
@@ -101,7 +122,7 @@ python -m web_stress_testing https://example.com -u 100 -d 60 --yes     --proxy-
 | `PROXYPOOL_TTL` | 600 | 校验有效期（秒） |
 | `PROXYPOOL_CHECK_INTERVAL` | 60 | 增量校验周期（秒） |
 | `PROXYPOOL_CRAWL_INTERVAL` | 1800 | 爬取周期（秒） |
-| `PROXYPOOL_SOURCES` | kuaidaili,ip3366,66ip | 免费源（空=关闭爬取） |
+| `PROXYPOOL_SOURCES` | 全部 15 个（见第五节） | 免费源白名单（空=关闭爬取） |
 
 ## 七、自检
 
